@@ -41,6 +41,41 @@ ROLES = {
 }
 
 
+
+NATIVE_AGENTS = {
+    'solar_explorer': ('Исследование кода и воспроизведение без изменений', 'read-only', 'Исследуй код и путь исполнения. Верни факты с файлами и символами, воспроизведение, неизвестные условия и рекомендации для исполнителя. Не изменяй файлы. Не подменяй наблюдение диагнозом.'),
+    'solar_worker': ('Реализация согласованной задачи', 'workspace-write', 'Прочитай контракт задачи и инструкции проекта. Воспроизведи проблему и реализуй согласованную правку. Сохраняй чужие изменения. Верни изменённые файлы, выполненные проверки, результаты и оставшиеся риски. Не назначай себе одобрение ревью.'),
+    'solar_verifier': ('Независимая проверка результата и критериев задачи', 'read-only', 'Проверь критерии задачи по реальным артефактам и результатам. Выполни конечные проверки, если они совместимы с read-only sandbox. Если проверки требуют записи кешей или артефактов, сообщи координатору, не обходи sandbox. Не меняй код. Верни pass/fail/blocked по каждому критерию с доказательствами.'),
+    'solar_reviewer': ('Независимый поиск регрессий и нарушений требований', 'read-only', 'Изучи исходный контракт, diff и окружающий код независимо от выводов исполнителя. Ищи конкретные регрессии и пропущенные условия. Верни severity, файл, воспроизведение и доказательство. Отдели факты от предположений. Не меняй код и не одобряй неизвестное поведение.'),
+}
+
+
+def install_native(root):
+    codex = root / '.codex'
+    agents = codex / 'agents'
+    agents.mkdir(parents=True, exist_ok=True)
+    for name, (description, sandbox, instructions) in NATIVE_AGENTS.items():
+        content = '\n'.join([
+            '# Нативный агент Codex. Файл задаёт конфигурацию будущей сессии.',
+            'name = ' + json.dumps(name, ensure_ascii=False),
+            'description = ' + json.dumps(description, ensure_ascii=False),
+            'sandbox_mode = ' + json.dumps(sandbox),
+            'developer_instructions = ' + json.dumps(instructions, ensure_ascii=False),
+            '',
+        ])
+        path = agents / (name + '.toml')
+        if not path.exists():
+            path.write_text(content)
+        elif path.read_text() != content:
+            print('Сохранён изменённый профиль агента: ' + str(path), file=sys.stderr)
+    config_path = codex / 'config.toml'
+    if not config_path.exists():
+        config_path.write_text('# Конфигурация Codex Solar. Модель наследуется из настроек пользователя.\n[agents]\nenabled = true\nmax_concurrent_threads_per_session = 4\n')
+    else:
+        # Preserve existing provider, sandbox and agent settings exactly.
+        print('Существующий .codex/config.toml сохранён; проверь [agents] и доверие проекта.', file=sys.stderr)
+
+
 def load(path, default=None):
     return json.loads(path.read_text()) if path.exists() else default
 
@@ -150,6 +185,7 @@ def init(root):
         if not any(h.get('command') == cmd for group in groups for h in group.get('hooks', [])):
             groups.append({'hooks': [{'type': 'command', 'command': cmd, 'timeout': 15, 'statusMessage': 'Agent Workbench: ' + event}]})
     save(hookfile, hookdata)
+    install_native(root)
     print(json.dumps({'installed': str(root), 'checks': load(config)['checks'], 'next': 'Inspect commands in .agent-workbench/config.json; trust project and review /hooks in Codex; hooks require a Git repo.'}, ensure_ascii=False))
 
 
@@ -340,6 +376,7 @@ def main():
     sub.add_parser('check')
     sub.add_parser('status')
     sub.add_parser('run')
+    sub.add_parser('run-native')
     p = sub.add_parser('finish')
     p.add_argument('--evidence', action='append', required=True)
     p = sub.add_parser('task')
@@ -364,6 +401,23 @@ def main():
         task(root, args.goal, args.accept, args.scope)
     elif args.action == 'run':
         return orchestrate(root)
+    elif args.action == 'run-native':
+        wb = root / '.agent-workbench'
+        current = load(wb / 'task.json')
+        if not current or current.get('status') != 'active':
+            raise ValueError('Create an active task first')
+        if not __import__('shutil').which('codex'):
+            raise ValueError('Codex CLI is not installed here')
+        config = load(wb / 'config.json')
+        if not config['checks']:
+            raise ValueError('Configure meaningful verification commands first')
+        directory = wb / 'runs' / ('native-' + uuid.uuid4().hex[:12])
+        directory.mkdir(parents=True)
+        prompt = ('Coordinate the active task using the native Codex subagents solar_explorer, solar_worker, solar_verifier and solar_reviewer. Spawn these agents as separate sessions, not persona switches. Read AGENTS.md and docs/СТАНДАРТ.md if present. First gather evidence with explorer, then delegate scoped implementation to worker, wait for results, run project checks in the coordinator, and request independent verifier and reviewer reports. Respect child sandbox limits; report blocked verification rather than escalating permissions. Do not auto-commit, approve or mark the task complete. Return evidence and unresolved findings. Avoid redundant parallel writers. Task: ' + json.dumps(current, ensure_ascii=False))
+        code = run_agent(root, prompt, False, directory, config)
+        save(directory / 'summary.json', {'task_id': current['id'], 'process_exit': code, 'status': 'awaiting_review' if code == 0 else 'blocked', 'native_subagents_requested': list(NATIVE_AGENTS), 'activation_verified_by_this_script': False})
+        print('Inspect native session events and reports at ' + str(directory) + '; process success does not prove every requested subagent was spawned.')
+        return code
     elif args.action == 'finish':
         if not fresh(root):
             raise ValueError('Current verification must pass before completion')

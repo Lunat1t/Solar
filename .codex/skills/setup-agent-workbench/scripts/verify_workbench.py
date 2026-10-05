@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 
 source = Path(__file__).resolve().parents[1] / 'assets/workbench/agent_workbench.py'
@@ -137,6 +138,27 @@ class WorkbenchTests(unittest.TestCase):
         summaries = list((self.wb / 'runs').glob('agent-*/summary.json'))
         self.assertEqual(w.load(summaries[0])['status'], 'awaiting_review')
         self.assertEqual(w.load(self.wb / 'task.json')['status'], 'active')
+    def test_native_agent_profiles(self):
+        config = tomllib.loads((self.root / '.codex/config.toml').read_text())
+        self.assertTrue(config['agents']['enabled'])
+        self.assertEqual(config['agents']['max_concurrent_threads_per_session'], 4)
+        for name, (_, sandbox, _) in w.NATIVE_AGENTS.items():
+            profile = tomllib.loads((self.root / '.codex/agents' / (name + '.toml')).read_text())
+            self.assertEqual(profile['name'], name)
+            self.assertTrue(profile['description'])
+            self.assertTrue(profile['developer_instructions'])
+            self.assertEqual(profile['sandbox_mode'], sandbox)
+    def test_native_install_preserves_existing_configuration(self):
+        configpath = self.root / '.codex/config.toml'
+        text = '[agents]\nenabled = false\nmax_concurrent_threads_per_session = 1\n'
+        configpath.write_text(text)
+        profile = self.root / '.codex/agents/solar_worker.toml'
+        custom = 'name = "solar_worker"\ndescription = "Custom"\ndeveloper_instructions = "Keep me"\n'
+        profile.write_text(custom)
+        with contextlib.redirect_stderr(io.StringIO()):
+            w.install_native(self.root)
+        self.assertEqual(configpath.read_text(), text)
+        self.assertEqual(profile.read_text(), custom)
     def test_timeout(self):
         code = w.execute([sys.executable, '-c', 'import time; time.sleep(30)'], self.root, .1, self.root / '.agent-workbench/out', self.root / '.agent-workbench/err')
         self.assertEqual(code, 124)
