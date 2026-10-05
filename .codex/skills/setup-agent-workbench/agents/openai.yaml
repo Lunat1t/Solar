@@ -1,0 +1,8 @@
+interface:
+  display_name: "Agent Workbench"
+  short_description: "Сэтап разработки: проверки, хуки и steering"
+  default_prompt: "Используй $setup-agent-workbench для настройки проекта и разработки с проверками."
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+policy:
+  allow_implicit_invocation: true

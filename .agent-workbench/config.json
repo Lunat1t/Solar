@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "checks": [
+    {
+      "name": "workbench-tests",
+      "argv": [
+        "python3",
+        ".codex/skills/setup-agent-workbench/scripts/verify_workbench.py"
+      ],
+      "timeout": 120
+    },
+    {
+      "name": "repository-consistency",
+      "argv": [
+        "python3",
+        "scripts/check_repository.py"
+      ],
+      "timeout": 30
+    }
+  ],
+  "agent_timeout": 900,
+  "max_repair_rounds": 2,
+  "max_stop_continuations": 1,
+  "model": null,
+  "research_mode": false
+}

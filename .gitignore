@@ -216,3 +216,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+.agent-workbench/runs/
+.agent-workbench/hooks-state/
+.agent-workbench/task.json
+.agent-workbench/checkpoint.md
+.agent-workbench/verification.json
+
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+dist/
+target/
+.DS_Store

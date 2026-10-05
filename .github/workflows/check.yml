@@ -1,0 +1,23 @@
+name: Проверки Solar
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    name: '${{ matrix.os }} / Python ${{ matrix.python }}'
+    runs-on: '${{ matrix.os }}'
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Проверить сэтап
+        run: python3 agent_workbench.py check

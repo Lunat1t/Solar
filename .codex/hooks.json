@@ -1,0 +1,52 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agent-workbench/agent_workbench.py\" hook SessionStart",
+            "timeout": 15,
+            "statusMessage": "Agent Workbench: SessionStart"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agent-workbench/agent_workbench.py\" hook UserPromptSubmit",
+            "timeout": 15,
+            "statusMessage": "Agent Workbench: UserPromptSubmit"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agent-workbench/agent_workbench.py\" hook PostToolUse",
+            "timeout": 15,
+            "statusMessage": "Agent Workbench: PostToolUse"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agent-workbench/agent_workbench.py\" hook Stop",
+            "timeout": 15,
+            "statusMessage": "Agent Workbench: Stop"
+          }
+        ]
+      }
+    ]
+  }
+}
